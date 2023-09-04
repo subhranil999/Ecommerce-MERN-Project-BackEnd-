@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express');
 const server = express();
 const mongoose = require('mongoose');
@@ -11,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const cookieParser = require('cookie-parser');
+const path = require('path')
 
 const productsRouter = require('./routes/Products');
 const categoriesRouter = require('./routes/Categories');
@@ -22,20 +24,19 @@ const ordersRouter = require('./routes/Order');
 const { User } = require('./model/User');
 const { isAuth, sanitizeUser, cookieExtractor } = require('./services/common');
 
-const SECRET_KEY = 'SECRET_KEY';
 // JWT options
 
 const opts = {};
 opts.jwtFromRequest = cookieExtractor;
-opts.secretOrKey = SECRET_KEY; // TODO: should not be in code;
+opts.secretOrKey = process.env.JWT_SECRET_KEY; // TODO: should not be in code;
 
 //middlewares
 
-// server.use(express.static('build'))
+server.use(express.static(path.resolve(__dirname,'build')))
 server.use(cookieParser());
 server.use(
   session({
-    secret: 'keyboard cat',
+    secret: process.env.SESSION_KEY,
     resave: false, 
     saveUninitialized: false, 
   })
@@ -55,6 +56,8 @@ server.use('/users', isAuth(), usersRouter.router);
 server.use('/auth', authRouter.router);
 server.use('/cart', isAuth(), cartRouter.router);
 server.use('/orders', isAuth(), ordersRouter.router);
+
+server.get('*', (req, res) => res.sendFile(path.resolve('build', 'index.html')));
 
 // Passport Strategies
 passport.use(
@@ -79,7 +82,7 @@ passport.use(
           if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
             return done(null, false, { message: 'invalid credentials' });
           }
-          const token = jwt.sign(sanitizeUser(user), SECRET_KEY);
+          const token = jwt.sign(sanitizeUser(user), process.env.JWT_SECRET_KEY);
           done(null, {id:user.id, role:user.role,token}); // this lines sends to serializer
         }
       );
@@ -131,16 +134,14 @@ main().catch((err) => console.log('Database not connected'));
 // }
 
 async function main() {
-  await mongoose.connect('mongodb+srv://subhranil:riju1234@cluster0.hwymcbr.mongodb.net/ecommerce?retryWrites=true&w=majority');
+  await mongoose.connect(process.env.MONGODB_URL);
   console.log('Database connected');
 }
 
-// mongoose.connect('mongodb+srv://rijubm4:Riju1999@cluster0.hwymcbr.mongodb.net/ecommerce?retryWrites=true&w=majority')
+// mongoose.connect(process.env.MONGODB_URL)
 //     .then(()=>console.log('Database connected'))
 //     .catch((err)=> console.log('Database not connected'));
 
-
-
-server.listen(8080, () => {
+server.listen(process.env.PORT, () => {
   console.log('Server started');
 });
